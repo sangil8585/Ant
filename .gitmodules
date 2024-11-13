@@ -1,3 +1,6 @@
 [submodule "Ant-client"]
 	path = Ant-client
 	url = https://github.com/TeamOfAnts/Ant-client.git
+[submodule "Ant-server"]
+	path = Ant-server
+	url = https://github.com/TeamOfAnts/Ant-server.git
