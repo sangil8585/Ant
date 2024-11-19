@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+  traefik:
+    image: traefik:v3.2
+    command: 
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+    ports:
+      - "80:80"
+      - "9876:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  client:
+    build:
+      context: ./Ant-client
+      dockerfile: ../Dockerfile.client
+    environment:
+      - PORT=3434
+      - NODE_ENV=development
+    volumes:
+      - ./Ant-client/src:/Ant-client/src
+      - ./Ant-client/vite.config.ts:/Ant-client/vite.config.ts
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`ant.localhost`)"
+      - "traefik.http.services.client.loadbalancer.server.port=3434"
+    # scaleout
+    # deploy:
+    #   mode: replicated
+    #   replicas: 3
