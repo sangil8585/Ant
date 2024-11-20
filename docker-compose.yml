@@ -4,11 +4,19 @@ services:
     image: traefik:v3.2
     command: 
       - "--api.insecure=true"
+      - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:8888"
+      - "--entrypoints.traefik.address=:9876"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.entryPoints=traefik"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
+      - "traefik.http.routers.api.service=api@internal"
     ports:
-      - "80:80"
-      - "9876:8080"
+      - "8888:8888"
+      - "9876:9876"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   client:
@@ -26,6 +34,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.client.rule=Host(`ant.localhost`)"
       - "traefik.http.services.client.loadbalancer.server.port=3434"
+    depends_on:
+      - traefik
     # scaleout
     # deploy:
     #   mode: replicated
