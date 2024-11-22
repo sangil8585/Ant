@@ -2,7 +2,7 @@ version: "3.8"
 services:
   traefik:
     image: traefik:v3.2
-    command: 
+    command:
       - "--api.insecure=true"
       - "--api.dashboard=true"
       - "--providers.docker=true"
@@ -19,6 +19,9 @@ services:
       - "9876:9876"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ant-net
+
   client:
     build:
       context: ./Ant-client
@@ -40,3 +43,82 @@ services:
     # deploy:
     #   mode: replicated
     #   replicas: 3
+
+  ant_nginx:
+    image: ant/nginx:1.0
+    container_name: ant.nginx
+    ports:
+      - "80:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`nginx.ant.localhost`)"
+      - "traefik.http.services.nginx.loadbalancer.server.port=10001"
+      - "traefik.http.middlewares.nginx-redirect.redirectscheme.scheme=http"
+      - "traefik.http.middlewares.nginx-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.nginx.middlewares=nginx-redirect"
+    volumes:
+      - /apps/ant/nginx/html:/usr/share/nginx/html:ro
+      - /apps/ant/nginx/conf/nginx.conf:/etc/nginx/nginx.conf
+      - /apps/ant/nginx/conf/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - ant-net
+    depends_on:
+      - ant_tomcat
+
+  ant_tomcat:
+    image: ant/tomcat:1.0
+    container_name: ant.tomcat
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - /apps/ant/tomcat/webapps:/usr/local/tomcat/webapps:rw # webapps 마운트
+      - /apps/ant/logs/tomcat:/usr/local/tomcat/logs:ro       # Tomcat log 설정
+    environment:
+      - JAVA_HOME=/opt/java/openjdk
+      - JAVA_VERSION=17
+      - JAVA_OPTS=-server -Xms512m -Xmx1024m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m
+      - LANG=ko_KR.UTF-8
+      - LC_ALL=ko_KR.UTF-8
+      - CATALINA_OPTS=-Dfile.encoding=UTF-8 -Duser.timezone=Asia/Seoul
+      - TOMCAT_HOME=/usr/local/tomcat
+      - CATALINA_HOME=/usr/local/tomcat
+      - TOMCAT_ALLOW_REMOTE_MANAGEMENT=1
+    networks:
+      - ant-net
+      - db-net
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:latest
+    container_name: ant.mysql
+    hostname: mysql_db
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ant2024
+      TZ: Asia/Seoul
+    volumes:
+      - /apps/ant/docker/conf/mysql:/etc/mysql/conf.d:ro
+      - mysql_data:/var/lib/mysql
+    networks:
+      - db-net
+
+networks:
+  ant-net:
+    external: true
+  db-net:
+    external: true
+
+volumes:
+  mysql_data:
+    driver: local
+  tomcat_data:
+    driver: local
+  nginx_data:
+    driver: local
